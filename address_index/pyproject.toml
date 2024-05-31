@@ -1,0 +1,14 @@
++++++++++++++++++++++++++++++[tool.poetry]
+name = "address_functions"
+version = "0.1.1"
+description = "A Pyspark Package used in the engineering stage, to improve address data.
+authors = ["Ben Moscrop <Ben.Moscrop@ons.gov.uk", "Steve Rowlands"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "address_functions"}]
+#homepage = 
+repository = 
+
+[tool.poetry.dependencies]
+python = ">=3.6.8"
+dlh_utils = ">=0.2.1"
