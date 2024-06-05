@@ -3,6 +3,7 @@ import re
 from collections import Counter
 from functools import reduce
 
+import fuzzywuzzy
 from fuzzywuzzy import fuzz
 import openpyxl
 import xlrd

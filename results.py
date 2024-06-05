@@ -308,7 +308,6 @@ def process_df_default(df: DataFrame, address_col: str) -> DataFrame:
            .drop("output")
     deduplicated_affected_count = df.filter(df.words_deduplicated_flag == 1).count()
     print(f"Address deduplicated count: {deduplicated_affected_count}")
-    df.filter(df.words_deduplicated_flag == 1).select("supplied_query_address", "final_cleaned_address").show(10, truncate=False)
 
     # Step 4: applying dedupe_uk_postcode
     df = dedupe_uk_postcode(df)
