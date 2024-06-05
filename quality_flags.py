@@ -12,9 +12,7 @@ from pyspark.sql.functions import udf, regexp_replace, upper, col, when, length,
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StringType, IntegerType, StructType, StructField
 
-from dlh_utils import utilities, dataframes, linkage, standardisation, sessions, profiling, flags
-
-from address_index.address_functions.config.settings import (
+from address_functions.config.settings import (
     town_list, alternative_town_list, 
     allowed_country_list, disallowed_country_list, county_list
 )

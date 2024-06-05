@@ -13,22 +13,20 @@ from pyspark.sql.functions import udf, regexp_replace, upper, col, when, length,
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import StringType, IntegerType, StructType, StructField
 
-# Utilities and dataframes might typically include fundamental operations which shouldn't inherently cause circular dependencies
-from dlh_utils import utilities, dataframes, linkage, standardisation, sessions, profiling, flags
 
 # Ensure that these imported functions do not import `results.py` or each other in a circular way
-from address_index.address_functions.pre_processing import (
+from address_functions.pre_processing import (
     clean_punctuation, remove_noise_words_with_flag,
     get_process_and_deduplicate_address_udf, dedupe_uk_postcode
 )
-from address_index.address_functions.quality_flags import (
+from address_functions.quality_flags import (
     add_length_flag, just_country_postcode_exact,
     just_county_postcode_exact, just_town_postcode_exact,
     keyword_present, all_3_criteria, has_country_and_ZZ99,
     country_in_last_half, is_invalid_postcode
 )
 
-from address_index.address_functions.sac import extract_postcode_town_address
+from address_functions.sac import extract_postcode_town_address
 
 
 

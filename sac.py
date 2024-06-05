@@ -3,7 +3,7 @@ import re
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, regexp_extract, regexp_replace, when, trim, upper
 from pyspark.sql.types import StringType
-from address_index.address_functions.config.settings import town_list
+from address_functions.config.settings import town_list
 
 def extract_postcode_town_address(df, address_col):
     # Define regular expressions for postcode and town extraction

@@ -14,8 +14,6 @@ from pyspark.sql.functions import udf, regexp_replace, upper, col, when, length,
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StringType, IntegerType, StructType, StructField
 
-from dlh_utils import utilities, dataframes, linkage, standardisation, sessions, profiling, flags
-
 ####################################################################################
 
 """
