@@ -11,4 +11,3 @@ repository =
 
 [tool.poetry.dependencies]
 python = ">=3.6.8"
-dlh_utils = ">=0.2.1"
