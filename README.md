@@ -25,6 +25,5 @@ df = pd.DataFrame(data)
 'Process the DataFrame'
 
 processed_df = process_df_default(df)
-print(processed_df)
 
 
