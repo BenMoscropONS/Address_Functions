@@ -36,6 +36,6 @@ processed_df = process_df_default(df)
 # Testing 
 In the testing folder is an example script of implementing the functions on a dataframe
 
-
-
+# Config
+Config includes python lists that are integral to making sure the quality and sac modules work. By using the list/s as a call in regex.
 
