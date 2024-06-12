@@ -1,44 +1,38 @@
-'''
-to look at the records that are affected by each function, use the flag associated with the
-function if it has one. 
+' # Address Functions
 
-So i have added in a function that basically runs them in the correct order for the user. this is the function
-"process_df". This is the order of that function
+This repository contains a collection of address processing functions, including pre-processing, quality flagging, result handling, and standardisation of address columns.
 
-1) clean_punctuation
-2) merge_similar_words
-3) deduplicate_address_and_flag
-4) dedupe_uk_postcode
-5) add_length_flag
-5) keyword_present
-6) all_3_criteria
-7) has_country_and_ZZ99
-8) country_in_last_half
-9) is_invalid_postcode
+## Table of Contents
 
-then extra functions "filter_records_with_any_flags_set", and "filter_and_count_all_flags_zero"
-which act on our processed dataframe to give us the dataframe we want to send to AIMS, and also give us
-a dataframe to quality check
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Functions](#functions)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [License](#license)
 
-there is a flag for:
-(clean_punctuation, (merge_similar_words + remove_repeats_with_flag),\
-dedupe_uk_postcode, add_length_flag, keyword_present, all_3_criteria, has_country_and_ZZ99, \
-country_in_last_half, is_invalid_postcode)
+## Installation
 
-The flags that do not discern data quality are the flags associated with: 
-(clean_punctuation, (merge_similar_words + remove_repeats_with_flag), dedupe_uk_postcode)
+To use the address functions, you need to have Python installed. You can clone the repository and install the required dependencies using the following commands:
 
-The flags related to data quality, are:
-(add_length_flag, keyword_present, all_3_criteria, has_country_and_ZZ99, country_in_last_half, is_invalid_postcode)
+```bash
+git clone https://github.com/BenMoscropONS/Address_Functions.git
+cd Address_Functions
+pip install -r requirements.txt
 
-as a default I would suggest only to send the "all_no" records as seen in summary_statistics
-(the records that aren't flagged by one or more of the quality associated flags)
-'''
-#################
+## Functions
+Pre_processing
+The pre_processing.py module includes functions to clean and standardise address data and flag them.
 
-Important note: 
+Quality_Flags
+The quality_flags.py module includes functions to flag addresses based on their quality, due to the different metrics in every function.
 
-the functions: just_town_postcode, just_country_postcode, and just_county_postcode take a considerable
-amount of time to run in the "process_df_precise" function, this is because they use fuzzy matching. This makes it more accurate, but at the
-expense of run time. If it is less than 100k records I would suggest to use the fuzzy matching. But
-any more and I'd suggest using the exact matching
+Results
+The results.py module includes functions to handle how a dataframe is processed and in what form it is returned. 
+
+SAC
+The sac.py module includes functions related to the standardisation of address columns, to be Address lines, Town, and Postcode.
+
+Streamlined Processing
+The results.py module contains an overarching function that runs the pre_processing, quality flags, and SAC functions sequentially.
