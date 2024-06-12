@@ -12,6 +12,25 @@ This repository contains a collection of address processing functions, including
 - [Contributing](#contributing)
 - [License](#license)
 
+## Project Structure
+
+Address_Functions/
+├── init.py
+├── LICENSE.txt
+├── README.md
+├── config/
+│ ├── init.py
+│ ├── settings.py
+├── pre_processing.py
+├── pyproject.toml
+├── quality_flags.py
+├── results.py
+├── sac.py
+├── testing/
+│ ├── example_of_using_functions_er2020.py
+│ ├── example_of_using_functions_land_success.py
+│ ├── example_of_using_functions_pds_success.py
+
 ## Installation
 
 To use the address functions, you need to have Python installed. You can clone the repository and install the required dependencies using the following commands:
@@ -36,3 +55,20 @@ The sac.py module includes functions related to the standardisation of address c
 
 Streamlined Processing
 The results.py module contains an overarching function that runs the pre_processing, quality flags, and SAC functions sequentially.
+
+## Usage
+
+from results import process_df_default
+
+# Example DataFrame
+data = {
+    "supplied_query_address": [
+        "10 Downing St, Westminster, London SW1A 2AA, UK",
+        "221B Baker St, Marylebone, London NW1 6XE, UK"
+    ]
+}
+df = pd.DataFrame(data)
+
+# Process the DataFrame
+processed_df = process_df_default(df)
+print(processed_df)
