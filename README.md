@@ -13,7 +13,7 @@ Sac - the "sac" module, which stands for Standardised Address Columns, pertains 
 
 from results import process_df_default
 
-# Example DataFrame
+'example dataframe'
 data = {
     "supplied_query_address": [
         "10 Downing St, Westminster, London SW1A 2AA, UK",
@@ -22,7 +22,7 @@ data = {
 }
 df = pd.DataFrame(data)
 
-# Process the DataFrame
+'Process the DataFrame'
 processed_df = process_df_default(df)
 print(processed_df)
 
