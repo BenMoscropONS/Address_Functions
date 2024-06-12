@@ -2,12 +2,19 @@
 
 This repository contains a collection of address processing functions, including pre-processing, quality flagging, result handling, and standardization of address columns. 
 
-# Functions 
+# Functions: 
 
-Pre_processing - the "pre_processing" module has functions to clean, standardise and flag address data.
-Quality_flags - The "quality_flags" module has functions to flag addresses based on their quality, what each flag specifically means can be found out in the doc strings of quality_flags
-Results - The "results" module contains an overarching function that runs the pre_processing, quality_flags, and sac functions sequentially. The output is defined here too.
-Sac - the "sac" module, which stands for Standardised Address Columns, pertains to extracting information from the address string to create "address_lines", "town" and "postcode.
+# Pre_processing 
+- the "pre_processing" module has functions to clean, standardise and flag address data.
+  
+# Quality_flags 
+The "quality_flags" module has functions to flag addresses based on their quality, what each flag specifically means can be found out in the doc strings of quality_flags
+
+# Results  
+The "results" module contains an overarching function that runs the pre_processing, quality_flags, and sac functions sequentially. The output is defined here too.
+
+# Sac 
+the "sac" module, which stands for Standardised Address Columns, pertains to extracting information from the address string to create "address_lines", "town" and "postcode.
 
 # Example usage can be seen in the testing scripts, however a simple version is:
 
