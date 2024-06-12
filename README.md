@@ -33,4 +33,9 @@ df = pd.DataFrame(data)
 
 processed_df = process_df_default(df)
 
+# Testing 
+In the testing folder is an example script of implementing the functions on a dataframe
+
+
+
 
