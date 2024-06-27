@@ -26,7 +26,8 @@ from address_functions.quality_flags import (
     country_in_last_half, is_invalid_postcode
 )
 
-from address_functions.sac import extract_postcode_town_address
+from address_functions.sac import extract_postcode_town_address, standardise_street_types, identify_patterns, \
+    identify_location_units, remove_unwanted_characters
 
 
 
@@ -273,7 +274,7 @@ def process_df_precise(df: DataFrame, address_string: str) -> DataFrame:
 
 #################################################################################
 
-def process_df_default(df: DataFrame, address_col: str) -> DataFrame:
+def process_df_default(df, address_col):
     """
     Process a df containing address data using exact matching.
 
@@ -281,7 +282,7 @@ def process_df_default(df: DataFrame, address_col: str) -> DataFrame:
 
     Parameters:
     - df (DataFrame): The input DataFrame containing address data.
-    - address_col (str, optional): The name of the address column. 
+    - address_col (str): The name of the address column. 
 
     Returns:
     - df: A new DataFrame with additional columns and flags indicating address validity.
@@ -313,54 +314,71 @@ def process_df_default(df: DataFrame, address_col: str) -> DataFrame:
     df = dedupe_uk_postcode(df)
     postcode_deduplicated_count = df.filter(df.postcodes_deduplicated_flag == 1).count()
     print(f"Postcodes deduplicated count: {postcode_deduplicated_count}")
+    
+    # Standardise street types
+    df = standardise_street_types(df, address_col)
 
-    # Step 5: applying add_length_flag
+    # Identify patterns
+    df = identify_patterns(df, address_col)
+
+    # Identify location units
+    df = identify_location_units(df, address_col)
+
+    # Remove unwanted characters
+    df = remove_unwanted_characters(df, address_col)
+
+    # Step 5: Extract postcode, town, and clean address lines
+    df = extract_postcode_town_address(df, address_col)
+
+    # Step 6: applying add_length_flag
     df = add_length_flag(df)
     length_affected_count = df.filter(df.length_flag == 1).count()
     print(f"Flagged by length: {length_affected_count}")
 
-    # Step 6: applying just_country_postcode_exact
+    # Step 7: applying just_country_postcode_exact
     df = just_country_postcode_exact(df)
     country_postcode_affected_count = df.filter(df.just_country_postcode_flag == 1).count()
     print(f"Number of addresses flagged for only having country and postcode: {country_postcode_affected_count}")
 
-    # Step 7: applying just_county_postcode_exact
+    # Step 8: applying just_county_postcode_exact
     df = just_county_postcode_exact(df)
     county_postcode_affected_count = df.filter(df.just_county_postcode_flag == 1).count()
     print(f"Number of addresses flagged for only having county and postcode: {county_postcode_affected_count}")
 
-    # Step 8: applying just_town_postcode_exact
+    # Step 9: applying just_town_postcode_exact
     df = just_town_postcode_exact(df)
     town_postcode_affected_count = df.filter(df.just_town_postcode_flag == 1).count()
     print(f"Number of addresses flagged for only having town and postcode: {town_postcode_affected_count}")
 
-    # Step 9: applying keyword_present
+    # Step 10: applying keyword_present
     df = keyword_present(df)
     keyword_affected_count = df.filter(df.keyword_flag == 1).count()
     print(f"Flagged by keywords: {keyword_affected_count}")
 
-    # Step 10: applying all_3_criteria
+    # Step 11: applying all_3_criteria
     df = all_3_criteria(df)
     criteria_affected_count = df.filter(df.criteria_flag == 1).count()
     print(f"Number of addresses flagged based on 3 criteria: {criteria_affected_count}")
 
-    # Step 11: applying has_country_and_ZZ99
+    # Step 12: applying has_country_and_ZZ99
     df = has_country_and_ZZ99(df)
     country_and_ZZ99_affected_count = df.filter(df.country_postcode_flag == 1).count()
     print(f"Number of addresses flagged for country and ZZ99: {country_and_ZZ99_affected_count}")
 
-    # Step 12: applying country_in_last_half
+    # Step 13: applying country_in_last_half
     df = country_in_last_half(df)
     country_position_affected_count = df.filter(df.country_position_flag == 1).count()
     print(f"Number of addresses with country in last half: {country_position_affected_count}")
 
-    # Step 13: Count and print the number of addresses with invalid postcodes
+    # Step 14: Count and print the number of addresses with invalid postcodes
     df = is_invalid_postcode(df)
     invalid_postcode_affected_count = df.filter(df.invalid_postcode_flag == 1).count()
     print(f"Number of addresses with invalid postcodes: {invalid_postcode_affected_count}")
     
-    # Step 14: Extract postcode, town, and clean address lines
-    df = extract_postcode_town_address(df, address_col)
+    # Step 15: Drop token and location unit variables
+    token_columns = ['unclass_num', 'single_num', 'txt_b4_num', 'end_num', 'start_num', 'start_num_suff', 'end_num_suff']
+    location_unit_columns = ['flat', 'room', 'unit', 'block', 'apartment', 'floor']
+    df = df.drop(*token_columns, *location_unit_columns)
     
     # a refresh of cleaning any lingering punctuation that is created by any other function
     df = clean_punctuation(df, input_col="final_cleaned_address")
@@ -368,12 +386,12 @@ def process_df_default(df: DataFrame, address_col: str) -> DataFrame:
     # dropping unnecessary columns that are created to make other functions work. 
     df = df.drop("address_array", "cleaned_address")
     
-    # Step 15: Filter where all flags are zero and print count
+    # Step 16: Filter where all flags are zero and print count
     df_all_flags_zero = filter_and_count_all_flags_zero(df)
     count_all_flags_zero = df_all_flags_zero.count()
     print(f"Number of records where all flags (excluding specific flags) are 0: {count_all_flags_zero}")
 
-    # Step 16: Filter where any flag is set and print count
+    # Step 17: Filter where any flag is set and print count
     df_any_flags_set = filter_records_with_any_flags_set(df)
     count_any_flags_set = df_any_flags_set.count()
     print(f"Number of records where any flag (excluding specific flags) is set: {count_any_flags_set}")

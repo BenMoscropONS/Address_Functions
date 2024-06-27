@@ -66,7 +66,6 @@ from pyspark.sql.types import StringType, IntegerType, StructType, StructField
 
 """
 
-
 # Function to check and reformat postcode
 def clean_punctuation(df, input_col="supplied_query_address"):
     # handling punctuation marks and spaces

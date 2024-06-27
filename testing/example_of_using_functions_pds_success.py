@@ -18,24 +18,8 @@ import address_functions.sac as sac
 from address_functions.config.settings import town_list
 
 
+spark = dlh_utils.sessions.getOrCreateSparkSession(appName='demo', size='medium')
 
-
-
-
-spark = (
-  SparkSession.builder.appName("medium-session")
-  .config("spark.executor.memory", "8g") # memory of session
-  .config("spark.executor.cores", 1)
-  .config("soark.dynamicAllocation.enabled", "true")
-  .config("spark.dynamicAllocation.maxExecutors", 3)
-  .config("spark.sql.shuffle.partitions", "100") # this is number of partitions 
-  .config("spark.shuffle.service.enabled", "true")
-  .config("spark.ui.showConsoleProgress", "false") # true will show progress lines
-  .config("spark.io.compression.codec", "lz4") # this makes your data more compressed
-  .config("spark.sql.repl.eagerEval.enabled", "true") # this makes data scrollable
-  .enableHiveSupport()
-  .getOrCreate()
-)
 
 # reading in pandas, read in is simpler in pandas. Hence I have opted for this rather than spark.read
 # this csv file is uploaded to cloudera, change this to suit your need. For me this was the area the csv was located. 
@@ -55,12 +39,6 @@ df.cache()
 df, df_all_flags_zero, df_any_flags_set = results.process_df_default(df, "supplied_query_address")
 
 df.limit(40).toPandas()
-
-testing_df.limit(40).toPandas()
-
-
-
-
 
 # if you'd like to see how each function behaves (isn't available for all):
 
