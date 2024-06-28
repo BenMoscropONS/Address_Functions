@@ -314,21 +314,6 @@ def process_df_default(df, address_col):
     df = dedupe_uk_postcode(df)
     postcode_deduplicated_count = df.filter(df.postcodes_deduplicated_flag == 1).count()
     print(f"Postcodes deduplicated count: {postcode_deduplicated_count}")
-    
-    # Standardise street types
-    df = standardise_street_types(df, address_col)
-
-    # Identify patterns
-    df = identify_patterns(df, address_col)
-
-    # Identify location units
-    df = identify_location_units(df, address_col)
-
-    # Remove unwanted characters
-    df = remove_unwanted_characters(df, address_col)
-
-    # Step 5: Extract postcode, town, and clean address lines
-    df = extract_postcode_town_address(df, address_col)
 
     # Step 6: applying add_length_flag
     df = add_length_flag(df)
@@ -374,6 +359,21 @@ def process_df_default(df, address_col):
     df = is_invalid_postcode(df)
     invalid_postcode_affected_count = df.filter(df.invalid_postcode_flag == 1).count()
     print(f"Number of addresses with invalid postcodes: {invalid_postcode_affected_count}")
+    
+        # Standardise street types
+    df = standardise_street_types(df, address_col)
+
+    # Identify patterns
+    df = identify_patterns(df, address_col)
+
+    # Identify location units
+    df = identify_location_units(df, address_col)
+
+    # Remove unwanted characters
+    df = remove_unwanted_characters(df, address_col)
+
+    # Step 5: Extract postcode, town, and clean address lines
+    df = extract_postcode_town_address(df, address_col)
     
     # Step 15: Drop token and location unit variables
     token_columns = ['unclass_num', 'single_num', 'txt_b4_num', 'end_num', 'start_num', 'start_num_suff', 'end_num_suff']

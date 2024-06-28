@@ -38,6 +38,7 @@ df.cache()
 # Assuming the process_df_default function returns three DataFrames: df, df_all_flags_zero, df_any_flags_set
 df, df_all_flags_zero, df_any_flags_set = results.process_df_default(df, "supplied_query_address")
 
+df.columns
 df.limit(40).toPandas()
 
 # if you'd like to see how each function behaves (isn't available for all):
