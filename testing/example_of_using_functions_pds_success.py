@@ -2,20 +2,17 @@ import pandas as pd
 import re
 from collections import Counter
 from functools import reduce
-
 import dlh_utils
 from dlh_utils import utilities
 from pyspark.sql import SparkSession, DataFrame
 import pyspark.sql.functions as F
 from pyspark.sql.functions import udf, regexp_replace, upper, col, when, length, split, regexp_extract, trim
 from pyspark.sql.types import StringType, IntegerType, StructType, StructField
-
-
-# Import specific functions you plan to use from your custom modules
 import address_functions.pre_processing as pre_processing
 import address_functions.results as results
 import address_functions.sac as sac  
 from address_functions.config.settings import town_list
+
 
 
 spark = dlh_utils.sessions.getOrCreateSparkSession(appName='demo', size='medium')
@@ -28,18 +25,73 @@ df = pd.read_csv('addr_index/data/pds_2022_under_65_conf.csv')
 # making the dataframe to have spark utility 
 df = utilities.pandas_to_spark(df)
 
-df.limit(40).toPandas()
-
-
-
 # quickly cacheing this dataset
 df.cache()
+
+df.columns
 
 # Assuming the process_df_default function returns three DataFrames: df, df_all_flags_zero, df_any_flags_set
 df, df_all_flags_zero, df_any_flags_set = results.process_df_default(df, "supplied_query_address")
 
+# Check distribution of ones and zeroes for the 'length_flag' column
+df.groupBy('punctuation_cleaned_flag').count().show()
+
+df.groupBy('noise_removed_flag').count().show()
+
+df.groupBy('words_deduplicated_flag').count().show()
+
+df.groupBy('postcodes_deduplicated_flag').count().show()
+
+df.groupBy('street_type_standardised_flag').count().show()
+
+df.groupBy('patterns_identified_flag').count().show()
+
+df.groupBy('location_units_identified_flag').count().show()
+
+df.groupBy('unwanted_characters_removed_flag').count().show()
+
+df.groupBy('just_country_postcode_flag').count().show()
+
+df.groupBy('just_county_postcode_flag').count().show()
+
+df.groupBy('just_town_postcode_flag').count().show()
+
+df.groupBy('keyword_flag').count().show()
+
+df.groupBy('criteria_flag').count().show()
+
+df.groupBy('country_postcode_flag').count().show()
+
+df.groupBy('country_position_flag').count().show()
+
+df.groupBy('invalid_postcode_flag').count().show()
+
+df.columns
+
+
 df.columns
 df.limit(40).toPandas()
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.postcodes_deduplicated_flag == 1).show(500, truncate=False)
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.postcodes_corrected_flag == 1).show(100, truncate=False)
+
+postcodes_corrected_flag
+
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.punctuation_cleaned_flag == 1).show(100, truncate=False)
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.patterns_identified_flag == 1).show(100, truncate=False)
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.location_units_identified_flag == 1).show(100, truncate=False)
+
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.changes_flag == 1).show(100, truncate=False)
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.just_town_postcode_flag == 1).show(100, truncate=False)
+
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.length_flag = 1).show(40, Truncate=False)
 
 # if you'd like to see how each function behaves (isn't available for all):
 

@@ -11,9 +11,11 @@ import xlrd
 from pyspark.sql.functions import udf
 from pyspark.sql.types import StringType
 import pyspark.sql.functions as F
-from pyspark.sql.functions import udf, regexp_replace, upper, col, when, length, split, regexp_extract, trim
+from pyspark.sql.functions import udf, regexp_replace, upper, col, when, length, split, regexp_extract, trim, concat_ws
 from pyspark.sql import DataFrame
-from pyspark.sql.types import StringType, IntegerType, StructType, StructField
+from pyspark.sql.types import StringType, IntegerType, StructType, StructField, ArrayType
+
+from address_functions.config.settings import town_list
 
 ####################################################################################
 
@@ -39,7 +41,7 @@ from pyspark.sql.types import StringType, IntegerType, StructType, StructField
     
     Example:
 
-    Suppose you have a DataFrame `df` with a column "raw_address" containing addresses:
+    Suppose you have a DataFrame df with a column "raw_address" containing addresses:
     +-----------------------------+
     | raw_address                 |
     +-----------------------------+
@@ -66,137 +68,71 @@ from pyspark.sql.types import StringType, IntegerType, StructType, StructField
 
 """
 
-# Function to check and reformat postcode
-def clean_punctuation(df, input_col="supplied_query_address"):
-    # handling punctuation marks and spaces
-    df = df.withColumn("cleaned_address", 
-                       regexp_replace(col(input_col), 
-                                      r"[\s,.-]*\.,[\s,.-]*|[\s,.-]+\,|,\s*[\s,.-]+", 
+def clean_punctuation(df, input_col="supplied_query_address", create_flag=True):
+    # Define a function to check if a part is a town
+    def is_town(part):
+        return part.upper() in town_list
+
+    # Define a function to clean parts
+    def clean_part(part):
+        if part and not is_town(part):
+            part = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", part)
+            part = re.sub(r"\s+", " ", part)
+        return part
+
+    # Define a UDF that applies the clean_part function to each element in the list
+    @udf(ArrayType(StringType()))
+    def clean_parts_udf(parts):
+        return [clean_part(part) for part in parts]
+
+    # Handling punctuation marks and spaces
+    df = df.withColumn("cleaned_address",
+                       regexp_replace(col(input_col),
+                                      r"[\s,.-]*\.,[\s,.-]*|[\s,.-]+\,|,\s*[\s,.-]+",
+                                      ", "))
+    df = df.withColumn("cleaned_address",
+                       regexp_replace(col("cleaned_address"),
+                                      r",\s*,|(^[\s,.-]+)|([\s,.-]+$)",
                                       ", "))
 
-    # identifying repeated punctuation and unwanted leading/trailing characters
-    df = df.withColumn("cleaned_address", 
-                       regexp_replace(col("cleaned_address"), 
-                                      r",\s*,|(^[\s,.-]+)|([\s,.-]+$)", 
-                                      ", "))
+    # Split the address into parts to handle each part separately
+    df = df.withColumn("address_parts", split(col("cleaned_address"), ",\\s*"))
 
-    # removing any lingering punctuation (a refresh)
-    df = df.withColumn("final_cleaned_address", 
-                       regexp_replace(col("cleaned_address"), 
-                                      r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", ""))
+    # Clean parts and join back into a single address string
+    df = df.withColumn("cleaned_parts", clean_parts_udf(col("address_parts")))
+    df = df.withColumn("final_cleaned_address", concat_ws(", ", col("cleaned_parts")))
 
-    # remove any occurrences of ', ,' in the final cleaned address
-    df = df.withColumn("final_cleaned_address", 
-                       regexp_replace(col("final_cleaned_address"), 
-                                      r",\s*,", ", "))
+    if create_flag:
+        df = df.withColumn("punctuation_cleaned_flag",
+                           when(col(input_col) == col("final_cleaned_address"), 0).otherwise(1))
+    else:
+        df = df.withColumn("punctuation_cleaned_flag",
+                           when(col("punctuation_cleaned_flag").isNotNull(), col("punctuation_cleaned_flag"))
+                           .otherwise(when(col(input_col) == col("final_cleaned_address"), 0).otherwise(1)))
 
-    # removing extra spaces between words
-    df = df.withColumn("final_cleaned_address", 
-                       regexp_replace(col("final_cleaned_address"), 
-                                      r"\s+", " "))
-
-    # adding a punctuation_cleaned flag column
-    df = df.withColumn("punctuation_cleaned_flag",
-                       when(col(input_col) == col("final_cleaned_address"), 0).otherwise(1))
+    # Drop intermediate columns
+    df = df.drop("cleaned_address", "address_parts", "cleaned_parts")
 
     return df
 
   
 
 
-'''
-# Usage example
-# Suppose your column is named "address_to_clean"
-cleaned_df = clean_punctuation(df, "address_to_clean")
-'''
 ##############################################################################
 
 def remove_noise_words_with_flag(df, input_col="final_cleaned_address"):
-    """
-    Removes noise words from the 'final_cleaned_address' column in a DataFrame that match the pattern
-    of four or more identical capital letters in a row and adds a flag indicating if noise
-    words were removed. This is particularly useful for cleaning up addresses or similar text fields
-    where data may contain errors or irrelevant characters that can affect downstream processing or analysis.
-
-    Parameters:
-    df (dataframe): The input DataFrame.
-    input_col (str): The name of the column to clean up, defaults to 'final_cleaned_address'.
-
-    Returns:
-    df: The DataFrame with noise words removed from 'final_cleaned_address' and a flag column indicating
-        whether the cleanup was performed.
-
-    Example:
-    Given a DataFrame `df` with a column 'final_cleaned_address' that contains the values:
-        1. '123 Main St AAAAA'
-        2. '456 Pine St'
-        3. '789 Elm St BBBB'
-
-    The function changes the strings to:
-        1. '123 Main St '
-        2. '456 Pine St'
-        3. '789 Elm St '
-
-    Additionally, a new column 'noise_removed_flag' would indicate with a 1 or 0 if noise words were removed:
-        1. 1 (indicating noise was removed)
-        2. 0 (indicating no noise was found and thus not removed)
-        3. 1 (indicating noise was removed)
-
-    This helps in cleaning the data for more accurate analysis or processing while also tracking the changes made.
-    """
-    # Define the noise words pattern for four or more identical capital letters
     noise_pattern = r"\b([A-Z])\1{3,}\b"
-
-    # Create a new column 'cleaned_address' that removes noise words from 'final_cleaned_address'
     df = df.withColumn("cleaned_address", regexp_replace(col(input_col), noise_pattern, ""))
-
-    # Add a flag to indicate whether noise words were removed by comparing the new 'cleaned_address' with 'final_cleaned_address'
     df = df.withColumn("noise_removed_flag",
                        when(col("cleaned_address") != col(input_col), 1).otherwise(0))
-
-    # Now update 'final_cleaned_address' with the contents of 'cleaned_address'
     df = df.withColumn(input_col, col("cleaned_address"))
-
-    # Remove the intermediate 'cleaned_address' column as it's no longer needed
     df = df.drop("cleaned_address")
-
     return df
   
 ##############################################################################
 
 
 def get_process_and_deduplicate_address_udf(column_name="final_cleaned_address"):
-    """
-
-    This UDF performs two main tasks:
-    1. Merges similar consecutive parts of an address based on a similarity threshold.
-    2. Removes exact duplicates from the address parts after merging.
-
-    Returns:
-    -  A Spark UDF that can be applied to a DataFrame column.
-      The UDF takes a single address string and outputs a tuple:
-      (cleaned_address, words_deduplicated_flag)
-        - cleaned_address (str): The processed address with merged parts and removed duplicates.
-        - words_deduplicated_flag (int): A flag (0 or 1) indicating whether any modifications were made.
-
-    Example Usage:
-    ---------------
-    Apply the UDF to a DataFrame column named 'address' to clean and deduplicate address data:
-
-    ```python
-    # Assuming 'df' is your DataFrame containing an 'address' column
-    process_udf = get_process_and_deduplicate_address_udf()
-    df = df.withColumn("processed_data", process_udf(col("address")))
-
-    # Split the results into separate columns and drop the original 'address' column if no longer needed
-    df = df.withColumn("cleaned_address", col("processed_data.cleaned_address"))
-    df = df.withColumn("words_deduplicated_flag", col("processed_data.words_deduplicated_flag"))
-    df = df.drop("processed_data")
-    ```
-    This modifies the DataFrame to include 'cleaned_address' and 'words_deduplicated_flag' columns,
-    showing the deduplicated addresses and whether any changes were made.
-    """
-
     def process_and_deduplicate_address(address, threshold=95):
         def contains_numbers(s):
             return bool(re.search(r'\d', s))
@@ -243,95 +179,169 @@ def get_process_and_deduplicate_address_udf(column_name="final_cleaned_address")
         StructField("cleaned_address", StringType(), True),
         StructField("words_deduplicated_flag", IntegerType(), True)
     ]))
+
     
 
 
 ###################################################################################
 
 
-def dedupe_uk_postcode(df, input_col="final_cleaned_address"):
-    """
-    Deduplicates UK postcode prefixes from an address column in a DataFrame by normalising postcodes
-    for consistent comparison and deduplication. This function specifically targets UK postcodes within
-    the addresses, removing duplicate prefixes and normalising postcodes to ensure accuracy in deduplication.
-    It also flags records where any form of deduplication has occurred.
 
-    Args:
-    - df (DataFrame): The input DataFrame.
-    - input_col (str): The name of the address column in the DataFrame to deduplicate. Default is "final_cleaned_address".
+def deduplicate_postcodes_udf():
+    def deduplicate_postcodes(address):
+        import re
 
-    Returns:
-    - DataFrame: The DataFrame with deduplicated postcodes and two flags indicating which records were modified for
-                 word deduplication and postcode deduplication, respectively.
-    """
-    
-    def normalise_postcode(part):
-        """
-        Normalises postal codes for comparison by removing spaces and special characters.
-        
-        Args:
-        - part (str): A string part of the address, potentially a postcode.
-        
-        Returns:
-        - str: A normalised version of the postcode.
-        """
-        return ''.join(filter(str.isalnum, part))  # Remove spaces and special characters
+        postcode_regex = r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z]\d{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y]\d{1,2})|(([A-Za-z]\d[A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y]\d[A-Za-z]?))))\s?\d[A-Za-z]{2})"
+        exclusion_list = ['STREET', 'ROAD', 'AVENUE', 'BOULEVARD', 'PLACE', 'LANE', 'DRIVE', 'TERRACE']
 
-    def dedupe_uk_postcode_prefix(address):
-        """
-        Deduplicates UK postcode prefixes within an address string by normalising and comparing postcodes.
-        Handles general duplicates and specifically targets postcode variations, marking deduplication with flags.
-        
-        Args:
-        - address (str): The full address string from which postcode prefixes are to be deduplicated.
-        
-        Returns:
-        - tuple: A tuple containing the deduplicated address and flags indicating modifications.
-        """
-        parts = [part.strip() for part in address.split(',')]
-        seen_postcodes = {}
-        seen_parts = set()
-        deduplicated_parts = []
-        postcodes_deduplicated = False
-        words_deduplicated = False
+        def is_valid_uk_postcode(postcode):
+            return re.fullmatch(postcode_regex, postcode) is not None
 
-        for part in parts:
-            normalised_part = normalise_postcode(part)
-            if part in seen_parts:
-                words_deduplicated = True
-                continue  # Skip general duplicates
+        def extract_postcodes(address):
+            return re.findall(postcode_regex, address)
 
-            if normalised_part in seen_postcodes:
-                # If we encounter a spaced version of an already seen postcode, replace it
-                if ' ' in part and not ' ' in seen_postcodes[normalised_part]:
-                    deduplicated_parts.remove(seen_postcodes[normalised_part])
-                    deduplicated_parts.append(part)
-                    seen_postcodes[normalised_part] = part
-                    postcodes_deduplicated = True
-                else:
-                    words_deduplicated = True
-            else:
-                seen_postcodes[normalised_part] = part
+        def ensure_postcode_format(postcode):
+            postcode = postcode.replace(" ", "").replace("-", "").upper()
+            if len(postcode) > 3:
+                return postcode[:-3] + " " + postcode[-3:]
+            return postcode
+
+        def remove_prefix_duplicates(address, postcode):
+            prefix = postcode.split()[0]
+            prefix_pattern = re.compile(r'\b{}\b'.format(re.escape(prefix)), re.IGNORECASE)
+            parts = [part.strip() for part in re.split(r',\s*', address)]
+            deduplicated_parts = []
+            for part in parts:
+                if prefix_pattern.fullmatch(part):
+                    continue
                 deduplicated_parts.append(part)
+            return ', '.join(deduplicated_parts)
 
-            seen_parts.add(part)
+        def normalise_postcode(postcode):
+            return re.sub(r'[\s-]', '', postcode.upper())
 
-        # Set the deduplication flags
-        words_deduplication_flag = 1 if words_deduplicated else 0
-        postcodes_deduplication_flag = 1 if postcodes_deduplicated else 0
+        def remove_duplicate_postcodes(address):
+            parts = [part.strip() for part in re.split(r',\s*', address)]
+            normalised_postcodes = {normalise_postcode(part) for part in parts if is_valid_uk_postcode(normalise_postcode(part))}
+            deduplicated_parts = []
+            seen_postcodes = set()
+            changes_flag = 0
 
-        return (', '.join(deduplicated_parts), words_deduplication_flag, postcodes_deduplication_flag)
+            for part in parts:
+                normalised = normalise_postcode(part)
+                if normalised in normalised_postcodes:
+                    if normalised not in seen_postcodes:
+                        seen_postcodes.add(normalised)
+                        deduplicated_parts.append(part)
+                    else:
+                        changes_flag = 1  # Duplicate postcode found
+                else:
+                    deduplicated_parts.append(part)
 
-    dedupe_udf = udf(dedupe_uk_postcode_prefix, StructType([
+            return ', '.join(deduplicated_parts), changes_flag
+
+        # Ensure specific parts like STREET and hyphenated numbers are not altered
+        def should_preserve_part(part):
+            if any(exclusion in part for exclusion in exclusion_list):
+                return True
+            if re.search(r'\d+[-]\d+', part) and not is_valid_uk_postcode(part):
+                return True
+            return False
+
+        postcodes = extract_postcodes(address)
+        if not postcodes:
+            return address, 0  # No valid postcodes found
+
+        formatted_postcodes = []
+        for pc_tuple in postcodes:
+            try:
+                pc = next(pc for pc in pc_tuple if pc)  # Find the non-empty match
+                formatted_postcode = ensure_postcode_format(pc)
+                formatted_postcodes.append(formatted_postcode)
+            except (IndexError, StopIteration) as e:
+                print(f"Error formatting postcode: {pc_tuple}, {e}")
+
+        changes_flag = 0
+        new_address = address
+
+        # Step 3: Remove prefix duplicates
+        for pc in formatted_postcodes:
+            if new_address.lower().count(pc.split()[0].lower()) > 1:
+                new_address = remove_prefix_duplicates(new_address, pc)
+                changes_flag = 1
+
+        # Step 4: Remove duplicate postcodes
+        new_address, check4_flag = remove_duplicate_postcodes(new_address)
+        changes_flag = changes_flag or check4_flag
+
+        # Step 5: Ensure specific parts and hyphens are not altered
+        parts = [part.strip() for part in re.split(r',\s*', new_address)]
+        final_parts = []
+        for part in parts:
+            if should_preserve_part(part):
+                final_parts.append(part)
+            else:
+                final_parts.append(part)
+        new_address = ', '.join(final_parts)
+
+        return new_address, changes_flag
+
+    return udf(deduplicate_postcodes, StructType([
         StructField("final_cleaned_address", StringType()), 
-        StructField("words_deduplicated_flag", IntegerType()), 
-        StructField("postcodes_deduplicated_flag", IntegerType())
+        StructField("changes_flag", IntegerType())
     ]))
-    
-    df = df.withColumn("results", dedupe_udf(col(input_col)))
-    df = df.withColumn("final_cleaned_address", col("results.final_cleaned_address"))
-    df = df.withColumn("words_deduplicated_flag", col("results.words_deduplicated_flag"))
-    df = df.withColumn("postcodes_deduplicated_flag", col("results.postcodes_deduplicated_flag"))
-    df = df.drop("results")
-    
-    return df
+  
+  
+###################################################################################
+  
+def map_and_check_postcode():
+    import re
+    from pyspark.sql.functions import udf
+    from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+
+    def normalise_postcode(postcode):
+        return postcode.replace(" ", "").replace("-", "").upper()
+
+    def format_postcode(postcode):
+        postcode = normalise_postcode(postcode)
+        if len(postcode) > 3:
+            return postcode[:-3] + " " + postcode[-3:]
+        return postcode
+
+    def is_valid_postcode(postcode):
+        postcode_regex = r"\b[A-Za-z]{1,2}\d{1,2}[A-Za-z]?\d[A-Za-z]{2}\b"
+        return re.match(postcode_regex, postcode) is not None
+
+    def map_and_check_postcode(address):
+        char_map = {
+            'I': '1', 'O': '0', 'S': '5', 'Z': '2',
+            'B': '8', 'D': '0', 'G': '6', 'J': '1',
+            'A': '4', 'E': '3', 'H': '4', 'L': '1',
+            'U': '0', 'Y': '4', 'C': '0', 'K': '1', 'M': '1'
+        }
+
+        def correct_postcode(postcode):
+            return ''.join([char_map.get(char, char) for char in postcode])
+
+        parts = [part.strip() for part in address.split(',')]
+        changes_flag = 0
+        valid_postcode_found = any(is_valid_postcode(part) for part in parts)
+
+        if not valid_postcode_found:
+            for i, part in enumerate(parts):
+                corrected = correct_postcode(part)
+                if is_valid_postcode(corrected):
+                    parts[i] = corrected
+                    changes_flag = 1  # Corrected postcode found, set the flag
+
+        final_address = ', '.join(parts)
+        return (final_address, changes_flag)
+
+    map_and_check_postcode_udf = udf(map_and_check_postcode, StructType([
+        StructField("final_cleaned_address", StringType()), 
+        StructField("changes_flag", IntegerType())
+    ]))
+
+    return {
+        "map_and_check_postcode_udf": map_and_check_postcode_udf
+    }
