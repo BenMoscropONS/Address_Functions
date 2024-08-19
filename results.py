@@ -17,7 +17,7 @@ from pyspark.sql.types import StringType, IntegerType, StructType, StructField
 
 from address_functions.pre_processing import (
     clean_punctuation, remove_noise_words_with_flag,
-    get_process_and_deduplicate_address_udf, deduplicate_postcodes_udf, map_and_check_postcode
+    get_process_and_deduplicate_address_udf, deduplicate_postcodes_udf, map_and_check_postcode, remove_unwanted_characters
 )
 
 from address_functions.quality_flags import (
@@ -28,7 +28,7 @@ from address_functions.quality_flags import (
     country_in_last_half, is_invalid_postcode)
 
 from address_functions.sac import (
-    extract_postcode_town_address, standardise_street_types, identify_patterns, identify_location_units, remove_unwanted_characters)
+    extract_postcode_town_address, standardise_street_types)
 
 
 
@@ -334,75 +334,71 @@ def process_df_default(df: DataFrame, address_col: str) -> DataFrame:
 
     # Step 6: Standardise street types
     df = standardise_street_types(df, "final_cleaned_address")
+    street_type_standardised_count = df.filter(df.street_type_standardised_flag == 1).count()
+    print(f"Street type standardised count: {street_type_standardised_count}")
 
-    # Step 7: Identify patterns
-    df = identify_patterns(df, "final_cleaned_address")
-
-    # Step 8: Identify location units
-    df = identify_location_units(df, "final_cleaned_address")
-
-    # Step 9: Remove unwanted characters
+    # Step 7: Remove unwanted characters
     df = remove_unwanted_characters(df, "final_cleaned_address")
     unwanted_characters_removed_count = df.filter(df.unwanted_characters_removed_flag == 1).count()
     print(f"Unwanted characters removed count: {unwanted_characters_removed_count}")
 
-    # Step 10: Extract postcode, town, and clean address lines
+    # Step 8: Extract postcode, town, and clean address lines
     df = extract_postcode_town_address(df, "final_cleaned_address")
     
-    # Step 11: Add length flag
+    # Step 9: Add length flag
     df = add_length_flag(df, "final_cleaned_address")
     length_affected_count = df.filter(df.length_flag == 1).count()
     print(f"Flagged by length: {length_affected_count}")
 
-    # Step 12: Just country postcode exact
+    # Step 10: Just country postcode exact
     df = just_country_postcode_exact(df, "final_cleaned_address")
     country_postcode_affected_count = df.filter(df.just_country_postcode_flag == 1).count()
     print(f"Number of addresses flagged for only having country and postcode: {country_postcode_affected_count}")
 
-    # Step 13: Just county postcode exact
+    # Step 11: Just county postcode exact
     df = just_county_postcode_exact(df, "final_cleaned_address")
     county_postcode_affected_count = df.filter(df.just_county_postcode_flag == 1).count()
     print(f"Number of addresses flagged for only having county and postcode: {county_postcode_affected_count}")
 
-    # Step 14: Just town postcode exact
+    # Step 12: Just town postcode exact
     df = just_town_postcode_exact(df, "final_cleaned_address")
     town_postcode_affected_count = df.filter(df.just_town_postcode_flag == 1).count()
     print(f"Number of addresses flagged for only having town and postcode: {town_postcode_affected_count}")
 
-    # Step 15: Keyword present
+    # Step 13: Keyword present
     df = keyword_present(df, "final_cleaned_address")
     keyword_affected_count = df.filter(df.keyword_flag == 1).count()
     print(f"Flagged by keywords: {keyword_affected_count}")
 
-    # Step 16: All 3 criteria
+    # Step 14: All 3 criteria
     df = all_3_criteria(df, "final_cleaned_address")
     criteria_affected_count = df.filter(df.criteria_flag == 1).count()
     print(f"Number of addresses flagged based on 3 criteria: {criteria_affected_count}")
 
-    # Step 17: Has country and ZZ99
+    # Step 15: Has country and ZZ99
     df = has_country_and_ZZ99(df, "final_cleaned_address")
     country_and_ZZ99_affected_count = df.filter(df.country_postcode_flag == 1).count()
     print(f"Number of addresses flagged for country and ZZ99: {country_and_ZZ99_affected_count}")
 
-    # Step 18: Country in last half
+    # Step 16: Country in last half
     df = country_in_last_half(df, "final_cleaned_address")
     country_position_affected_count = df.filter(df.country_position_flag == 1).count()
     print(f"Number of addresses with country in last half: {country_position_affected_count}")
 
-    # Step 19: Invalid postcodes
+    # Step 17: Invalid postcodes
     df = is_invalid_postcode(df, "final_cleaned_address")
     invalid_postcode_affected_count = df.filter(df.invalid_postcode_flag == 1).count()
     print(f"Number of addresses with invalid postcodes: {invalid_postcode_affected_count}")
     
-    # Step 20: Drop token and location unit variables
+    # Step 18: Drop token and location unit variables
     token_columns = ['unclass_num', 'single_num', 'txt_b4_num', 'end_num', 'start_num', 'start_num_suff', 'end_num_suff']
     location_unit_columns = ['flat', 'room', 'unit', 'block', 'apartment', 'floor']
     df = df.drop(*token_columns, *location_unit_columns)
     
-    # Step 21: Refresh of cleaning any lingering punctuation
+    # Step 19: Refresh of cleaning any lingering punctuation
     df = clean_punctuation(df, input_col="final_cleaned_address", create_flag=False)
     
-    # Step 22: Drop unnecessary columns
+    # Step 20: Drop unnecessary columns
     df = df.drop("address_array", "cleaned_address", "concat_address")
     
     # Count and print the number of records where all flags are zero and where any flags are set

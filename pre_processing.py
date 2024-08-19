@@ -11,7 +11,7 @@ import xlrd
 from pyspark.sql.functions import udf
 from pyspark.sql.types import StringType
 import pyspark.sql.functions as F
-from pyspark.sql.functions import udf, regexp_replace, upper, col, when, length, split, regexp_extract, trim, concat_ws
+from pyspark.sql.functions import udf, regexp_replace, upper, col, when, length, split, regexp_extract, trim, concat_ws, lit
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StringType, IntegerType, StructType, StructField, ArrayType
 
@@ -76,9 +76,15 @@ def clean_punctuation(df, input_col="supplied_query_address", create_flag=True):
     # Define a function to clean parts
     def clean_part(part):
         if part and not is_town(part):
+            # Preserve hyphens between numbers
+            part = re.sub(r'(?<=\d)-(?=\d)', ' TEMP_HYPHEN ', part)
+            # Remove punctuation at the beginning and end
             part = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", part)
+            # Normalise whitespace
             part = re.sub(r"\s+", " ", part)
-        return part
+            # Restore preserved hyphens
+            part = part.replace(' TEMP_HYPHEN ', '-')
+        return part.strip()
 
     # Define a UDF that applies the clean_part function to each element in the list
     @udf(ArrayType(StringType()))
@@ -101,6 +107,9 @@ def clean_punctuation(df, input_col="supplied_query_address", create_flag=True):
     # Clean parts and join back into a single address string
     df = df.withColumn("cleaned_parts", clean_parts_udf(col("address_parts")))
     df = df.withColumn("final_cleaned_address", concat_ws(", ", col("cleaned_parts")))
+
+    # Remove any leading or trailing commas and spaces in the final cleaned address
+    df = df.withColumn("final_cleaned_address", regexp_replace(col("final_cleaned_address"), r"^[, ]+", ""))
 
     if create_flag:
         df = df.withColumn("punctuation_cleaned_flag",
@@ -345,3 +354,37 @@ def map_and_check_postcode():
     return {
         "map_and_check_postcode_udf": map_and_check_postcode_udf
     }
+  
+#########################################################################################
+
+def remove_unwanted_characters(df: DataFrame, address_col: str = "final_cleaned_address") -> DataFrame:
+    original_col = col(address_col)
+    
+    # Create a regex pattern to match town names that should not be altered
+    towns_pattern = f"({'|'.join([re.escape(town) for town in town_list])})"
+    
+    # Define a function to clean parts of the address that are not town names
+    def clean_non_town_parts(part):
+        if part.upper() not in town_list:
+            return re.sub(r'\.|-|\bTO\b|\bOVER\b|\bNO\b|\bNO\.\b|\\|/', ' ', part)
+        return part
+
+    # UDF to apply the cleaning function to each part of the address
+    clean_non_town_parts_udf = udf(lambda parts: [clean_non_town_parts(part) for part in parts], ArrayType(StringType()))
+    
+    # Split the address into parts
+    df = df.withColumn("address_parts", split(col(address_col), ",\\s*"))
+    
+    # Apply the cleaning function to each part
+    df = df.withColumn("cleaned_parts", clean_non_town_parts_udf(col("address_parts")))
+    
+    # Join the cleaned parts back into a single address string
+    df = df.withColumn(address_col, concat_ws(", ", col("cleaned_parts")))
+    
+    # Drop the intermediate columns
+    df = df.drop("address_parts", "cleaned_parts")
+    
+    # Add a flag to indicate if any unwanted characters were removed
+    df = df.withColumn("unwanted_characters_removed_flag", when(col(address_col) != original_col, lit(1)).otherwise(0))
+    
+    return df
