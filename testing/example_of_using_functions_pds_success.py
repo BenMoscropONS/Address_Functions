@@ -30,10 +30,100 @@ df.cache()
 
 df.columns
 
+############################################ Testing dedupe postcode
+
+# Define schema
+schema = StructType([StructField("supplied_query_address", StringType(), True)])
+
+# Example data
+data = [
+    ("Flat 7 London House, N4 1RN, F13T 0WN",),
+    ("5 High Street, NEWENT, Gloucestershire, GL18 1QY",),
+    ("THE COACH HOUSE, CANAL ROAD, T4R 0PP, OX5 1JY",),
+    ("Downwater, W080RN 54N05, Bideford, Devon, EX39 5DW",),
+    ("Flat 5, Church Street, London, ABC 123",),
+    ("9 HIGH STREET, MILTON KEYNES, MK17 8RF",),
+    ("SANDYWAY NURSERIES, REDMARLEY ROAD, N80RN, GLOS",)
+]
+
+# Create DataFrame
+df_test = spark.createDataFrame(data, schema)
+
+# Apply the postcode correction UDF to the test DataFrame
+df_test = df_test.withColumn("output", postcode_correction(col("supplied_query_address")))
+
+# Extract the cleaned address and changes flag from the output
+df_test = df_test.withColumn("supplied_query_address", col("output.final_cleaned_address")) \
+                 .withColumn("postcode_corrected_flag", col("output.changes_flag")) \
+                 .drop("output")
+
+# Show corrected records and those that had postcodes corrected
+df_test.select("supplied_query_address", "postcode_corrected_flag").where(df_test.postcode_corrected_flag == 1).show(truncate=False)
+
+# Show debugging output in your console/logs to see why changes were not applied
+
+############################################ Testing correct invalid postcodes
+
+# Get the UDF from the map_and_check_postcode function
+postcode_correction = map_and_check_postcode()["map_and_check_postcode_udf"]
+
+# Apply the UDF to the DataFrame
+df = df.withColumn("output", postcode_correction(col("supplied_query_address")))
+
+# Extract the cleaned address and changes flag from the output
+df = df.withColumn("supplied_query_address", col("output.final_cleaned_address")) \
+       .withColumn("postcode_corrected_flag", col("output.changes_flag")) \
+       .drop("output")
+
+# Count the number of records where postcodes were corrected
+postcode_corrected_count = df.filter(df.postcode_corrected_flag == 1).count()
+
+# Print the count of corrected postcodes
+print(f"Postcodes corrected count: {postcode_corrected_count}")
+
+# Show some results for inspection
+df.select("supplied_query_address", "postcode_corrected_flag").where(df.postcode_corrected_flag == 1).show(100, truncate=False)
+
+#############################################
+
+df_clean = pre_processing.clean_punctuation(df)
+
+df_clean.select("supplied_query_address", "final_cleaned_address").where(df_clean.punctuation_cleaned_flag == 1).show(100, truncate=False)
+
+df_clean2 = pre_processing.remove_noise_words_with_flag(df_clean)
+
+df_clean2.select("supplied_query_address", "final_cleaned_address").where(df_clean2.noise_removed_flag == 1).show(100, truncate=False)
+
+df_clean3 = pre_processing.get_process_and_deduplicate_address_udf(df_clean)
+
+df_clean3.select("supplied_query_address", "final_cleaned_address").where(df_clean3.words_deduplicated_flag == 1).show(100, truncate=False)
+
+df_clean4 = sac.standardise_street_types(df_clean)
+
+df_clean4.select("supplied_query_address", "final_cleaned_address").where(df_clean4.street_type_standardised_flag == 1).show(100, truncate=False)
+
+df_clean5 = pre_processing.remove_noise_words_with_flag(df_clean)
+
+df_clean5.select("supplied_query_address", "final_cleaned_address").where(df_clean2.noise_removed_flag == 1).show(100, truncate=False)
+
+df_clean6 = pre_processing.remove_noise_words_with_flag(df_clean)
+
+df_clean6.select("supplied_query_address", "final_cleaned_address").where(df_clean2.noise_removed_flag == 1).show(100, truncate=False)
+
+df_clean7 = pre_processing.remove_noise_words_with_flag(df_clean)
+
+df_clean7.select("supplied_query_address", "final_cleaned_address").where(df_clean2.noise_removed_flag == 1).show(100, truncate=False)
+
+############################################################ Testing above
+
 # Assuming the process_df_default function returns three DataFrames: df, df_all_flags_zero, df_any_flags_set
 df, df_all_flags_zero, df_any_flags_set = results.process_df_default(df, "supplied_query_address")
 
-# Check distribution of ones and zeroes for the 'length_flag' column
+df, df_all_flags_zero, df_any_flags_set = results.process_df_default_with_debug(df, "supplied_query_address")
+
+process_df_default_with_debug
+
+'''# Check distribution of ones and zeroes for the 'length_flag' column
 df.groupBy('punctuation_cleaned_flag').count().show()
 
 df.groupBy('noise_removed_flag').count().show()
@@ -67,10 +157,12 @@ df.groupBy('country_position_flag').count().show()
 df.groupBy('invalid_postcode_flag').count().show()
 
 df.columns
-
+'''
 
 df.columns
 df.limit(40).toPandas()
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.words_deduplicated_flag == 1).show(500, truncate=False)
 
 df.select("supplied_query_address", "final_cleaned_address").where(df.postcodes_deduplicated_flag == 1).show(500, truncate=False)
 
@@ -78,8 +170,9 @@ df.select("supplied_query_address", "final_cleaned_address").where(df.postcodes_
 
 postcodes_corrected_flag
 
+df_clean.columns
 
-df.select("supplied_query_address", "final_cleaned_address").where(df.punctuation_cleaned_flag == 1).show(100, truncate=False)
+df_clean.select("supplied_query_address", "final_cleaned_address").where(df_clean.punctuation_cleaned_flag == 1).show(100, truncate=False)
 
 df.select("supplied_query_address", "final_cleaned_address").where(df.patterns_identified_flag == 1).show(100, truncate=False)
 

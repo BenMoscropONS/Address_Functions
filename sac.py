@@ -1,12 +1,12 @@
 import re
 
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.functions import col, regexp_extract, regexp_replace, when, trim, upper, concat_ws, lit
+from pyspark.sql import SparkSession, DataFrame, udf
+from pyspark.sql.functions import col, regexp_extract, regexp_replace, when, trim, upper, concat_ws, lit, udf
 from pyspark.sql.types import StringType
 from address_functions.config.settings import town_list
 
 def extract_postcode_town_address(df: DataFrame, address_col: str = "final_cleaned_address") -> DataFrame:
-    postcode_pattern = r"([A-Za-z]{1,2}\d{1,2}\s*\d[A-Za-z]{2}|\w{1,2}\d\w\s*\d\w{2})"
+    postcode_pattern = r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z]\d{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y]\d{1,2})|(([A-Za-z]\d[A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y]\d[A-Za-z]?))))\s?\d[A-Za-z]{2})"
     town_regex = r',\s*(?!STREET|ROAD|LANE|AVENUE|DRIVE|SQUARE|HILL)\b([A-Za-z ]+?)\b(?=,|$)'
     towns_pattern = f"({'|'.join([re.escape(town) for town in town_list])})"
     
@@ -29,14 +29,15 @@ def extract_postcode_town_address(df: DataFrame, address_col: str = "final_clean
 
 ################################################################
 
-def standardise_street_types(df: DataFrame, address_col: str = "final_cleaned_address") -> DataFrame:
+def standardise_street_types(df, address_col="final_cleaned_address"):
+    # Save the original column for comparison later
     original_column = col(address_col)
 
-    # Apply standardization rules
-    df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bRD\b|RAOD', 'ROAD'))
-    df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bAVE\b|\bAVE\.\b|\bAVENEU\b', 'AVENUE'))
+    # Apply standardization rules for street types
     df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bSTR\b|\bSTRT\b', 'STREET'))
     df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bST\b(?!REET\b)', 'STREET'))
+    df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bRD\b|RAOD', 'ROAD'))
+    df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bAVE\b|\bAVE\.\b|\bAVENEU\b', 'AVENUE'))
     df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bCRT\b|\bCRT\.\b|\bCT\b', 'COURT'))
     df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bCRESENT\b|\bCRSNT\b', 'CRESCENT'))
     df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bDRV\b|\bDR\b', 'DRIVE'))
@@ -44,8 +45,11 @@ def standardise_street_types(df: DataFrame, address_col: str = "final_cleaned_ad
     df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bPK\b', 'PARK'))
     df = df.withColumn(address_col, regexp_replace(col(address_col), r'\bCL\b', 'CLOSE'))
 
-    # Add a flag to indicate if any standardisation has occurred
-    df = df.withColumn('street_type_standardised_flag', when(col(address_col) != original_column, lit(1)).otherwise(lit(0)))
+    # Add a flag to indicate if any standardization has occurred by comparing the original column and the modified one
+    df = df.withColumn(
+        'street_type_standardised_flag',
+        when(col(address_col) != original_column, lit(1)).otherwise(lit(0))
+    )
 
     return df
   

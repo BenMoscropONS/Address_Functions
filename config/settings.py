@@ -175,12 +175,12 @@ town_list = ["ABERDARE", "ABERFELDY", "ABERGELE", "ABERTAWE", "ABERTILLERY", "AB
 
 contextual_keywords = [
     'AIRPORT', 'BEACH', 'BORO', 'BOROUGH', 'BRIDGE', 'CENTRAL', 'CHES', 'CITY', 
-    'CNTY', 'COAST', 'COUNTY', 'DERBYS', 'DIST', 'DISTRICT', 'EAST', 'FOREST', 
+    'CNTY', 'COAST', 'COUNTY', 'DERBYS', 'DIST', 'DISTRICT', 'EAST', 'FOREST', "GLOS",
     'GREATER', 'GTR', 'HAM', 'HANTS', 'HARBOUR', 'HILL', 'HILLS', "ICKENHAM", 'ISLAND', 'LAKE', 
     'LANCS', 'LANE', 'LINCS', 'LOWER', 'MOUNT', 'N.I.', 'NEW', 'NI', 'NORTH', 'NOTTS', 
     'NR', 'OLD', 'PARISH', 'PARK', 'PEAK', 'PORT', 'REGION', 'RIVER', 'ROAD', 'SC', 
     'SCOT', 'SOUTH', 'SQUARE', 'STATION', 'SUFF', 'SUSS', 'TON', 'TOWN', 
-    'UPPER', 'VALLEY', 'VILLAGE', 'WALES', 'WARD', 'WELSH', 'WEST', 'YK', 'YORKS'
+    'UPPER', 'VALLEY', 'VILLAGE', 'WALES', 'WARD', 'WELSH', 'WEST', "WORCS", 'YK', 'YORKS'
 ]
 
 # adding this list in for just the parser part. it will likely take a long time to compile 

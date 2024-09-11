@@ -95,7 +95,7 @@ def just_town_postcode(df: DataFrame, address_col: str = "final_cleaned_address"
     to perform fuzzy matching on town names. It assumes the presence of a valid UK postcode regex pattern for postcode validation.
     """
     # UK postcode pattern to validate postcode format
-    uk_postcode_pattern = r"([A-Za-z]{1,2}\d{1,2}\s*\d[A-Za-z]{2}|\w{1,2}\d\w\s*\d\w{2})"
+    uk_postcode_pattern = r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z]\d{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y]\d{1,2})|(([A-Za-z]\d[A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y]\d[A-Za-z]?))))\s?\d[A-Za-z]{2})"
 
     # List of valid towns for matching
     valid_towns = town_list  
@@ -202,7 +202,7 @@ def just_country_postcode(df: DataFrame, address_col: str = "final_cleaned_addre
     - The UK postcode pattern is defined to match standard UK postcode formats, excluding the 'ZZ99' postcode, which is often used for anonymisation or testing purposes.
     """
     # Define the UK postcode pattern to validate the format
-    uk_postcode_pattern = r"([A-Za-z]{1,2}\d{1,2}\s*\d[A-Za-z]{2}|\w{1,2}\d\w\s*\d\w{2})"
+    uk_postcode_pattern = r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z]\d{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y]\d{1,2})|(([A-Za-z]\d[A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y]\d[A-Za-z]?))))\s?\d[A-Za-z]{2})"
 
     # List of valid countries for fuzzy matching
     valid_countries = allowed_country_list  # Ensure `allowed_country_list` is defined elsewhere in your code
@@ -247,7 +247,7 @@ def just_country_postcode_exact(df: DataFrame, address_col: str = "final_cleaned
     - It strictly validates against UK postcode patterns to exclude entries using the placeholder 'ZZ99', typically used for anonymisation or testing.
     """
     # Define the UK postcode pattern for validation
-    uk_postcode_pattern = r"([A-Za-z]{1,2}\d{1,2}\s*\d[A-Za-z]{2}|\w{1,2}\d\w\s*\d\w{2})"
+    uk_postcode_pattern = r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z]\d{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y]\d{1,2})|(([A-Za-z]\d[A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y]\d[A-Za-z]?))))\s?\d[A-Za-z]{2})"
 
     # Split the address column into country and postcode for validation
     split_address = split(col(address_col), ", ")
@@ -293,7 +293,7 @@ def just_county_postcode(df: DataFrame, address_col: str = "final_cleaned_addres
     - df: A new DataFrame with the 'just_county_postcode_flag' column added.
     """
     # our Uk postcode
-    uk_postcode_pattern = r"([A-Za-z]{1,2}\d{1,2}\s*\d[A-Za-z]{2}|\w{1,2}\d\w\s*\d\w{2})"
+    uk_postcode_pattern = r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z]\d{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y]\d{1,2})|(([A-Za-z]\d[A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y]\d[A-Za-z]?))))\s?\d[A-Za-z]{2})"
 
     # making it a python list
     valid_counties = county_list
@@ -333,7 +333,7 @@ def just_county_postcode_exact(df: DataFrame, address_col: str = "final_cleaned_
     - df: A new DataFrame with the 'just_county_postcode_flag' column added.
     """
     # Our Uk postcode pattern
-    uk_postcode_pattern = r"([A-Za-z]{1,2}\d{1,2}\s*\d[A-Za-z]{2}|\w{1,2}\d\w\s*\d\w{2})"
+    uk_postcode_pattern = r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z]\d{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y]\d{1,2})|(([A-Za-z]\d[A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y]\d[A-Za-z]?))))\s?\d[A-Za-z]{2})"
 
     # splitting the address into county and postcode
     split_address = F.split(F.col(address_col), ", ")
@@ -669,7 +669,7 @@ def country_in_last_half(df, input_col="final_cleaned_address"):
 # Main function to check for invalid postcodes and to reformat if necessary
 def is_invalid_postcode(df, input_col="final_cleaned_address"):
     # Modified regex to account for 0 or 1 space where the space should be in the UK postcode
-    postcode_regex = r"([A-Za-z]{1,2}\d[A-Za-z]?\d[A-Za-z]{2}|\w{1,2}\d\w?\d\w{2})"
+    postcode_regex = r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z]\d{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y]\d{1,2})|(([A-Za-z]\d[A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y]\d[A-Za-z]?))))\s?\d[A-Za-z]{2})"
 
     def check_invalid_postcode(address):
         import re
