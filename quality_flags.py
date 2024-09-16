@@ -353,6 +353,9 @@ def just_county_postcode_exact(df: DataFrame, address_col: str = "final_cleaned_
 
 ###################################################################################
 
+# i've recently removed "YYYY" and "ZZZZ" from this list and have instead added it as a cleaning step in
+# "remove_noise_words_with_flag"
+def keyword_present(df, input_col="final_cleaned_address"):
     """
     Checks for the presence of specific keywords within a designated column of a DataFrame and 
     flags entries containing these keywords.
@@ -377,9 +380,7 @@ def just_county_postcode_exact(df: DataFrame, address_col: str = "final_cleaned_
     | 456 Elm St, City          |                                | 0           |
     +---------------------------+--------------------------------+-------------+
     """
-# i've recently removed "YYYY" and "ZZZZ" from this list and have instead added it as a cleaning step in
-# "remove_noise_words_with_flag"
-def keyword_present(df, input_col="final_cleaned_address"):
+  
     keyword_list = ["LOST CONTACT", "ADDRESS NOT FOUND",
                     "MOVED ADDRESS", "CHILD HAS MOVED", "LOST CONTACT", "CHILD HAS NOW",
                     "ADDRESS NOT KNOWN", "MOVED ABROAD", "MOVED OUT OF", "NO TRACE", 
@@ -597,23 +598,30 @@ SOME KNOWN OVERCORRECTION WITH THIS, Just to make aware (0.03%) based on samples
 """
 
 def country_in_last_half(df, input_col="final_cleaned_address"):
-
+    
     def check_country_in_last_half(s):
         midpoint = len(s) // 2
         last_half = s[midpoint:]
+        
+        # Loop through disallowed country list
         for country in disallowed_country_list:
-            # Check if a country is in the last half
-            if country in last_half:
+            # Ensure we only match whole words using \b (word boundary) and case-insensitive matching
+            if re.search(rf"\b{re.escape(country)}\b", last_half, re.IGNORECASE):
                 # Find the position where the country is found
-                country_pos = last_half.find(country)
+                country_pos = last_half.lower().find(country.lower())
+                
                 # Check the substring following the country name
                 following_string = last_half[country_pos+len(country):country_pos+len(country)+6]
+                
                 # If "ROAD" or "STREET" follows the country name, we do not flag it
-                if " ROAD" not in following_string and " STREET" not in following_string:
+                if "ROAD" not in following_string.upper() and "STREET" not in following_string.upper():
                     return 1
         return 0
 
+    # Define the UDF to apply the check function
     country_position_udf = udf(check_country_in_last_half, IntegerType())
+
+    # Apply the UDF to create the flag
     df = df.withColumn("country_position_flag", country_position_udf(col(input_col)))
 
     return df

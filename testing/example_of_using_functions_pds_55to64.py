@@ -1,4 +1,5 @@
 import pandas as pd
+import pandas as pd
 import re
 from collections import Counter
 from functools import reduce
@@ -119,9 +120,11 @@ df_clean7.select("supplied_query_address", "final_cleaned_address").where(df_cle
 # Assuming the process_df_default function returns three DataFrames: df, df_all_flags_zero, df_any_flags_set
 df, df_all_flags_zero, df_any_flags_set = results.process_df_default(df, "supplied_query_address")
 
-df, df_all_flags_zero, df_any_flags_set = results.process_df_default_with_debug(df, "supplied_query_address")
+# Convert PySpark DataFrame to Pandas DataFrame
+df_pandas = df_all_flags_zero.toPandas()
 
-process_df_default_with_debug
+# Write the Pandas DataFrame directly to the CSV file
+df_pandas.to_csv('addr_index/data_output/electoral_register_55to64_output.csv', index=False)
 
 '''# Check distribution of ones and zeroes for the 'length_flag' column
 df.groupBy('punctuation_cleaned_flag').count().show()
