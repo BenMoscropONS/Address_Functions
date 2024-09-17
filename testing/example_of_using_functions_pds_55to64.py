@@ -1,5 +1,4 @@
 import pandas as pd
-import pandas as pd
 import re
 from collections import Counter
 from functools import reduce
@@ -31,7 +30,11 @@ df.cache()
 
 df.columns
 
-############################################ Testing dedupe postcode
+
+
+df.count()
+
+'''############################################ Testing dedupe postcode
 
 # Define schema
 schema = StructType([StructField("supplied_query_address", StringType(), True)])
@@ -115,16 +118,16 @@ df_clean7 = pre_processing.remove_noise_words_with_flag(df_clean)
 
 df_clean7.select("supplied_query_address", "final_cleaned_address").where(df_clean2.noise_removed_flag == 1).show(100, truncate=False)
 
-############################################################ Testing above
+############################################################ Testing above'''
 
 # Assuming the process_df_default function returns three DataFrames: df, df_all_flags_zero, df_any_flags_set
 df, df_all_flags_zero, df_any_flags_set = results.process_df_default(df, "supplied_query_address")
 
-# Convert PySpark DataFrame to Pandas DataFrame
+'''# Convert PySpark DataFrame to Pandas DataFrame
 df_pandas = df_all_flags_zero.toPandas()
 
 # Write the Pandas DataFrame directly to the CSV file
-df_pandas.to_csv('addr_index/data_output/electoral_register_55to64_output.csv', index=False)
+df_pandas.to_csv('addr_index/data_output/electoral_register_55to64_output.csv', index=False)'''
 
 '''# Check distribution of ones and zeroes for the 'length_flag' column
 df.groupBy('punctuation_cleaned_flag').count().show()
@@ -165,17 +168,19 @@ df.columns
 df.columns
 df.limit(40).toPandas()
 
+df.select("supplied_query_address", "final_cleaned_address").where(df.punctuation_cleaned_flag == 1).show(100, truncate=False)
+
+df.select("supplied_query_address", "final_cleaned_address").where(df.noise_removed_flag == 1).show(500, truncate=False)
+
 df.select("supplied_query_address", "final_cleaned_address").where(df.words_deduplicated_flag == 1).show(500, truncate=False)
 
-df.select("supplied_query_address", "final_cleaned_address").where(df.postcodes_deduplicated_flag == 1).show(500, truncate=False)
+df.select("supplied_query_address", "final_cleaned_address").where(df.postcodes_deduplicated_flag == 1).show(100, truncate=False)
 
-df.select("supplied_query_address", "final_cleaned_address").where(df.postcodes_corrected_flag == 1).show(100, truncate=False)
+df.select("supplied_query_address", "final_cleaned_address").where(df.street_type_standardised_flag == 1).show(100, truncate=False)
 
 postcodes_corrected_flag
 
 df_clean.columns
-
-df_clean.select("supplied_query_address", "final_cleaned_address").where(df_clean.punctuation_cleaned_flag == 1).show(100, truncate=False)
 
 df.select("supplied_query_address", "final_cleaned_address").where(df.patterns_identified_flag == 1).show(100, truncate=False)
 

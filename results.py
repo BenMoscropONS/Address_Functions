@@ -17,7 +17,7 @@ from pyspark.sql.types import StringType, IntegerType, StructType, StructField
 
 from address_functions.pre_processing import (
     clean_punctuation, remove_noise_words_with_flag,
-    get_process_and_deduplicate_address_udf, deduplicate_postcodes_udf, map_and_check_postcode
+    get_process_and_deduplicate_address_udf, deduplicate_postcodes_udf, map_and_check_postcode, standardise_street_types
 )
 
 from address_functions.quality_flags import (
@@ -28,7 +28,7 @@ from address_functions.quality_flags import (
     country_in_last_half, is_invalid_postcode)
 
 from address_functions.sac import (
-    extract_postcode_town_address, standardise_street_types)
+    extract_postcode_town_address)
 
 
 
