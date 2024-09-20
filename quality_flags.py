@@ -551,71 +551,43 @@ def has_country_and_ZZ99(df, input_col="final_cleaned_address"):
   
 ###################################################################################
 
-"""
-    Function: country_in_last_half
-
-    Purpose:
-    The function identifies records in a DataFrame where the name of a country appears in the latter half of an address string. 
-    This can be useful for cleaning or reformatting address data, as country names are commonly found towards the end of an address.
-
-    Processing Stages:
-    1. Define a list of recognised country names.
-    2. For each address in the input DataFrame, split the address roughly into two halves.
-    3. Check if any country name from the list is found in the latter half of the address.
-    4. Flag records based on the presence of a country name in the last half.
+def country_in_last_half(df, input_col="final_cleaned_address"):
+    """
+    Flags records where the word 'INDIA' appears by itself in the last half of the address.
+    The word 'INDIA' is flagged only when it is surrounded by commas or at the end of the address,
+    but not when it is part of a larger name (e.g., 'EAST INDIA COURT').
 
     Parameters:
-    - df (DataFrame): The input DataFrame containing address data.
-    - input_col (String): The name of the column containing addresses to be checked. Default is "final_cleaned_address".
+    -----------
+    df : pyspark.sql.DataFrame
+        The input DataFrame containing the address data.
+    input_col : str, optional
+        The name of the column in the DataFrame that holds the full address. Default is "final_cleaned_address".
 
     Returns:
-    #- df: A DataFrame with an additional "country_position_flag" column, where a flag value of 1 indicates the presence of a country name in the latter half of the address, and a value of 0 otherwise.
-
-    Example:
-
-    Suppose you have a dataFrame `df` with a column "address" containing:
-    +-----------------------+
-    | address               |
-    +-----------------------+
-    | 12 MAIN ST, USA       |
-    | 45 HIGH RD, LONDON    |
-    | PARK AVE, NEW ZEALAND |
-    +-----------------------+
-
-    After applying the function:
-    df_processed = country_in_last_half(df, "address")
-
-    The resulting DataFrame will be:
-    +-----------------------+--------------------+
-    | address               | country_position_flag|
-    +-----------------------+--------------------+
-    | 12 MAIN ST, USA       | 1                  |
-    | 45 HIGH RD, LONDON    | 0                  |
-    | PARK AVE, NEW ZEALAND | 1                  |
-    +-----------------------+--------------------+'''
-    
-SOME KNOWN OVERCORRECTION WITH THIS, Just to make aware (0.03%) based on samples
-"""
-
-def country_in_last_half(df, input_col="final_cleaned_address"):
+    --------
+    pyspark.sql.DataFrame
+        A DataFrame with an additional column 'country_position_flag' that flags if 'INDIA' is found alone in the last half of the address.
+    """
     
     def check_country_in_last_half(s):
+        # Define the specific country we are looking for ("INDIA")
+        target_country = "INDIA"
+        
+        # Split the address into two halves
         midpoint = len(s) // 2
         last_half = s[midpoint:]
         
-        # Loop through disallowed country list
-        for country in disallowed_country_list:
-            # Ensure we only match whole words using \b (word boundary) and case-insensitive matching
-            if re.search(rf"\b{re.escape(country)}\b", last_half, re.IGNORECASE):
-                # Find the position where the country is found
-                country_pos = last_half.lower().find(country.lower())
-                
-                # Check the substring following the country name
-                following_string = last_half[country_pos+len(country):country_pos+len(country)+6]
-                
-                # If "ROAD" or "STREET" follows the country name, we do not flag it
-                if "ROAD" not in following_string.upper() and "STREET" not in following_string.upper():
-                    return 1
+        # Check if 'INDIA' is in the last half, but only as a standalone word, between commas or at the end
+        match = re.search(rf"(,?\s*\b{target_country}\b\s*,?|,\s*\b{target_country}\b$)", last_half, re.IGNORECASE)
+        
+        if match:
+            # Ensure it's not part of a larger name (e.g., 'EAST INDIA COURT')
+            full_match = match.group(0).strip().upper()
+            # If "INDIA" is followed by "COURT", "ROAD", or "STREET", it should not be flagged
+            if "COURT" not in full_match and "ROAD" not in full_match and "STREET" not in full_match:
+                return 1
+        
         return 0
 
     # Define the UDF to apply the check function

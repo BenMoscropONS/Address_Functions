@@ -17,7 +17,7 @@ from pyspark.sql.types import StringType, IntegerType, StructType, StructField
 
 from address_functions.pre_processing import (
     clean_punctuation, remove_noise_words_with_flag,
-    get_process_and_deduplicate_address_udf, deduplicate_postcodes_udf, map_and_check_postcode
+    get_process_and_deduplicate_address_udf, deduplicate_postcodes_udf, map_and_check_postcode, standardise_street_types
 )
 
 from address_functions.quality_flags import (
@@ -28,7 +28,7 @@ from address_functions.quality_flags import (
     country_in_last_half, is_invalid_postcode)
 
 from address_functions.sac import (
-    extract_postcode_town_address, standardise_street_types)
+    extract_postcode_town_address)
 
 
 
@@ -302,43 +302,24 @@ def process_df_default(df: DataFrame, address_col: str) -> DataFrame:
     validate, and flag address records based on specific criteria, including exact postcode matching.
 
     Parameters:
-    -----------
-    df : pyspark.sql.DataFrame
-        The input DataFrame containing address data.
-    address_col : str
+    ----------- 
+    df : pyspark.sql.DataFrame 
+        The input DataFrame containing address data. 
+    address_col : str 
         The name of the address column within the DataFrame.
 
     Returns:
-    --------
-    tuple
-        - df : pyspark.sql.DataFrame
-            The processed DataFrame with additional columns and flags indicating address validity.
-        - df_all_flags_zero : pyspark.sql.DataFrame
-            A DataFrame subset containing records where all relevant flags are zero.
-        - df_any_flags_set : pyspark.sql.DataFrame
+    -------- 
+    tuple 
+        - df : pyspark.sql.DataFrame 
+            The processed DataFrame with additional columns and flags indicating address validity. 
+        - df_all_flags_zero : pyspark.sql.DataFrame 
+            A DataFrame subset containing records where all relevant flags are zero. 
+        - df_any_flags_set : pyspark.sql.DataFrame 
             A DataFrame subset containing records where at least one flag is set.
-
-    Processing Steps:
-    -----------------
-    1. Convert address column to uppercase.
-    2. Clean punctuation and remove unwanted characters.
-    3. Remove noise words and flag changes.
-    4. Process and deduplicate address words.
-    5. Deduplicate UK postcodes, correct and standardize them.
-    6. Standardise street types.
-    7. Extract postcode and town from the address.
-    8. Add length flag to indicate long/short addresses.
-    9. Flag addresses with only country and postcode using exact matching.
-    10. Flag addresses with only county and postcode using exact matching.
-    11. Flag addresses with only town and postcode using exact matching.
-    12. Check if certain keywords are present.
-    13. Apply additional custom rule-based criteria.
-    14. Flag addresses containing ZZ99 postcode (a placeholder code).
-    15. Check if the country appears in the last half of the address.
-    16. Flag addresses with invalid postcodes.
     """
 
-    # Cache the DataFrame to optimize performance by avoiding recomputation
+    # Reintroducing cache to optimise performance
     df = df.cache()
 
     # Step 1: Convert address column to uppercase for uniformity in processing
@@ -366,7 +347,7 @@ def process_df_default(df: DataFrame, address_col: str) -> DataFrame:
     address_deduplicated_count = df.filter(df.words_deduplicated_flag == 1).count()
     print(f"Address deduplicated count: {address_deduplicated_count}")
 
-    # Step 5: Deduplicate UK postcodes, correct and standardize them
+    # Step 5: Deduplicate UK postcodes, correct and standardise them
     deduplicate_postcodes = deduplicate_postcodes_udf()
     df = df.withColumn("output", deduplicate_postcodes(col("final_cleaned_address")))
     df = df.withColumn("final_cleaned_address", col("output.final_cleaned_address")) \
@@ -380,7 +361,7 @@ def process_df_default(df: DataFrame, address_col: str) -> DataFrame:
     street_type_standardised_count = df.filter(df.street_type_standardised_flag == 1).count()
     print(f"Street type standardised count: {street_type_standardised_count}")
 
-    # Cache the DataFrame again after deduplication and street standardization
+    # Cache the DataFrame again after deduplication and street standardisation
     df = df.cache()
 
     # Step 7: Extract postcode, town, and clean address lines

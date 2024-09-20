@@ -265,141 +265,71 @@ def get_process_and_deduplicate_address_udf(column_name="final_cleaned_address")
 
 
 def deduplicate_postcodes_udf():
-    """
-    UDF to deduplicate UK postcodes in an address, ensuring the correct format is maintained and 
-    the deduplicated postcode appears at the end of the address string.
-
-    The function performs the following steps:
-    1. Identifies and extracts all valid UK postcodes using a regex pattern.
-    2. Ensures the correct format for each postcode by adding a space before the final 3 characters (if missing).
-    3. Removes any duplicate postcode prefixes in the address, retaining the correctly formatted postcode.
-    4. Moves the last identified postcode to the end of the address string and removes other duplicates.
-    5. Removes excess punctuation (commas, spaces) in the final cleaned address.
-
-    Parameters:
-    ----------
-    None. The UDF will be applied to a DataFrame column.
-
-    Returns:
-    --------
-    pyspark.sql.functions.udf: A PySpark UDF that processes an address string to remove duplicate postcodes.
-
-    UDF Output Schema:
-    - final_cleaned_address (StringType): The cleaned address with deduplicated postcodes.
-    - changes_flag (IntegerType): Flag indicating if any changes were made (1 if changed, 0 otherwise).
-
-    Example:
-    -------
-    Input: "123 MAIN STREET, LN96QB, LONDON, LN9 6QB"
-    Output: "123 MAIN STREET, LONDON, LN9 6QB"  # The correctly formatted postcode is moved to the end.
-
-    Input: "FLAT 4, 1-3 HIGH STREET, AB12CD, CITY, AB1 2CD"
-    Output: "FLAT 4, 1-3 HIGH STREET, CITY, AB1 2CD"  # Duplicated postcode is removed, and the final postcode is correctly formatted.
-
-    Input: "LN96QB, 123 MAIN ROAD, LN9 6QB"
-    Output: "123 MAIN ROAD, LN9 6QB"  # Postcode at the start is removed, and correctly formatted one is kept at the end.
-    """
     import re
-    
-    # Define the UK postcode regex pattern
+    from pyspark.sql.functions import udf
+    from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+
+    # UK postcode regex pattern (with or without space)
     postcode_regex = r"([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z]\d{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y]\d{1,2})|(([A-Za-z]\d[A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y]\d[A-Za-z]?))))\s?\d[A-Za-z]{2})"
-    exclusion_list = ['STREET', 'ROAD', 'AVENUE', 'BOULEVARD', 'PLACE', 'LANE', 'DRIVE', 'TERRACE', 'ST']
 
-    def is_valid_uk_postcode(postcode):
-        return re.fullmatch(postcode_regex, postcode) is not None
-
-    def extract_postcodes(address):
-        return re.findall(postcode_regex, address)
+    def normalise_postcode(postcode):
+        """Normalize postcode by removing spaces and dashes."""
+        return re.sub(r'[\s-]', '', postcode.upper())
 
     def ensure_postcode_format(postcode):
-        # Ensure the postcode has the correct format (with space)
-        postcode = postcode.replace(" ", "").replace("-", "").upper()
+        """Ensure the postcode has the correct format (with a space)."""
+        postcode = normalise_postcode(postcode)
         if len(postcode) > 3:
             return postcode[:-3] + " " + postcode[-3:]
         return postcode
 
-    def remove_prefix_duplicates(address, postcode):
-        # Remove the postcode prefix (e.g., "LN96QB" in "LN96QB, 123 MAIN ROAD")
-        prefix = postcode.split()[0]
-        prefix_pattern = re.compile(r'\b{}\b'.format(re.escape(prefix)), re.IGNORECASE)
-        parts = [part.strip() for part in re.split(r',\s*', address)]
-        deduplicated_parts = []
-        for part in parts:
-            if prefix_pattern.fullmatch(part):
-                continue
-            deduplicated_parts.append(part)
-        return ', '.join(deduplicated_parts)
+    def extract_postcodes(address):
+        """Extract all valid UK postcodes from an address string."""
+        postcodes = re.findall(postcode_regex, address)
+        if not postcodes:
+            return []
+        return [next(pc for pc in pc_tuple if pc) for pc_tuple in postcodes]  # Flatten tuples
 
-    def normalise_postcode(postcode):
-        return re.sub(r'[\s-]', '', postcode.upper())
+    def remove_prefix_duplicates(address, formatted_postcodes):
+        """Remove all occurrences of postcodes (both spaced and unspaced) except the last one."""
+        for postcode in formatted_postcodes[:-1]:  # Leave the last one untouched for now
+            normalised_pc = normalise_postcode(postcode)
+            # Remove the postcode regardless of spacing
+            address = re.sub(re.escape(normalised_pc), '', address)
+            address = re.sub(re.escape(postcode), '', address)
+        return re.sub(r'\s+', ' ', address.strip())  # Clean up extra spaces
 
     def move_last_postcode_to_end(address, formatted_postcodes):
-        # Remove all postcodes from the address string except the last one
-        for pc in formatted_postcodes[:-1]:  # Remove all but the last formatted postcode
+        """Ensure that the last formatted postcode appears at the end of the address."""
+        last_postcode = formatted_postcodes[-1]  # Take the last correctly formatted postcode
+        # Remove all instances of postcodes from the address
+        for pc in formatted_postcodes:
             address = re.sub(re.escape(pc), '', address)
 
-        # Trim excess commas or spaces
-        address = re.sub(r'\s*,\s*', ', ', address.strip(', '))
-
-        # Append the last formatted postcode to the end of the string
-        address = f"{address}, {formatted_postcodes[-1]}".rstrip(", ")
-
-        return address
-
-    def remove_duplicate_postcodes(address):
-        parts = [part.strip() for part in re.split(r',\s*', address)]
-        normalised_postcodes = {normalise_postcode(part) for part in parts if is_valid_uk_postcode(normalise_postcode(part))}
-        deduplicated_parts = []
-        seen_postcodes = set()
-        changes_flag = 0
-
-        for part in parts:
-            normalised = normalise_postcode(part)
-            if normalised in normalised_postcodes:
-                if normalised not in seen_postcodes:
-                    seen_postcodes.add(normalised)
-                    deduplicated_parts.append(part)
-                else:
-                    changes_flag = 1  # Duplicate postcode found
-            else:
-                deduplicated_parts.append(part)
-
-        new_address = ', '.join(deduplicated_parts)
-        if new_address == address:
-            changes_flag = 0  # Reset flag if no actual change occurred
-
-        return new_address, changes_flag
+        # Append the last formatted postcode to the end
+        address = address.strip(', ') + ", " + last_postcode
+        return re.sub(r'\s*,\s*', ', ', address.strip(', '))  # Clean up punctuation
 
     def deduplicate_postcodes(address):
+        """Main function to deduplicate postcodes in an address."""
         postcodes = extract_postcodes(address)
         if not postcodes:
             return address, 0  # No valid postcodes found
-
-        formatted_postcodes = []
-        for pc_tuple in postcodes:
-            try:
-                pc = next(pc for pc in pc_tuple if pc)  # Find the non-empty match
-                formatted_postcode = ensure_postcode_format(pc)
-                formatted_postcodes.append(formatted_postcode)
-            except (IndexError, StopIteration) as e:
-                print(f"Error formatting postcode: {pc_tuple}, {e}")
-
+        
+        formatted_postcodes = [ensure_postcode_format(pc) for pc in postcodes]
         changes_flag = 0
         new_address = address
 
-        # Step 3: Remove prefix duplicates (improved logic)
-        for pc in formatted_postcodes:
-            if new_address.lower().count(pc.split()[0].lower()) > 1:
-                new_address = remove_prefix_duplicates(new_address, pc)
-                changes_flag = 1
-
-        # Step 4: Remove duplicate postcodes (improved detection of duplicates)
-        new_address, check4_flag = remove_duplicate_postcodes(new_address)
-        changes_flag = changes_flag or check4_flag
-
-        # Step 5: Ensure the postcode with a space is kept and placed at the end
+        # Step 1: Remove all duplicate postcodes except the last formatted one
+        new_address = remove_prefix_duplicates(new_address, formatted_postcodes)
+        
+        # Step 2: Ensure the last formatted postcode is kept at the end
         new_address = move_last_postcode_to_end(new_address, formatted_postcodes)
 
+        # Check if any changes were made
+        if new_address != address:
+            changes_flag = 1
+        
         return new_address, changes_flag
 
     return udf(deduplicate_postcodes, StructType([
