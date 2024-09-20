@@ -123,8 +123,11 @@ df_clean7.select("supplied_query_address", "final_cleaned_address").where(df_cle
 # Assuming the process_df_default function returns three DataFrames: df, df_all_flags_zero, df_any_flags_set
 df, df_all_flags_zero, df_any_flags_set = results.process_df_default(df, "supplied_query_address")
 
+<<<<<<< HEAD
 df.select("supplied_query_address", "final_cleaned_address")
 
+=======
+>>>>>>> 5dec019ff572e3acd20a44a946714ed3d3a2c9c1
 '''# Convert PySpark DataFrame to Pandas DataFrame
 df_pandas = df_all_flags_zero.toPandas()
 
