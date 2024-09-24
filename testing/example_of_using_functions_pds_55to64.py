@@ -34,38 +34,6 @@ df.columns
 
 df.count()
 
-'''############################################ Testing dedupe postcode
-
-# Define schema
-schema = StructType([StructField("supplied_query_address", StringType(), True)])
-
-# Example data
-data = [
-    ("Flat 7 London House, N4 1RN, F13T 0WN",),
-    ("5 High Street, NEWENT, Gloucestershire, GL18 1QY",),
-    ("THE COACH HOUSE, CANAL ROAD, T4R 0PP, OX5 1JY",),
-    ("Downwater, W080RN 54N05, Bideford, Devon, EX39 5DW",),
-    ("Flat 5, Church Street, London, ABC 123",),
-    ("9 HIGH STREET, MILTON KEYNES, MK17 8RF",),
-    ("SANDYWAY NURSERIES, REDMARLEY ROAD, N80RN, GLOS",)
-]
-
-# Create DataFrame
-df_test = spark.createDataFrame(data, schema)
-
-# Apply the postcode correction UDF to the test DataFrame
-df_test = df_test.withColumn("output", postcode_correction(col("supplied_query_address")))
-
-# Extract the cleaned address and changes flag from the output
-df_test = df_test.withColumn("supplied_query_address", col("output.final_cleaned_address")) \
-                 .withColumn("postcode_corrected_flag", col("output.changes_flag")) \
-                 .drop("output")
-
-# Show corrected records and those that had postcodes corrected
-df_test.select("supplied_query_address", "postcode_corrected_flag").where(df_test.postcode_corrected_flag == 1).show(truncate=False)
-
-# Show debugging output in your console/logs to see why changes were not applied
-
 ############################################ Testing correct invalid postcodes
 
 # Get the UDF from the map_and_check_postcode function
