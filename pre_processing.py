@@ -373,11 +373,11 @@ def map_and_check_postcode(address):
     Input: "123 MAIN STREET, LNI 2QB, LONDON"
     Output: "123 MAIN STREET, LN1 2QB, LONDON", 1  # 'I' corrected to '1' in the postcode
 
-    Input: "FLAT 4, 1-3 HIGH STREET, AB1 2CD, CITY"
-    Output: "FLAT 4, 1-3 HIGH STREET, AB1 2CD, CITY", 0  # Postcode already valid, no changes
+    Input: "FLAT 4, 1-3 FAKE STREET, AB1 2CD, CITY"
+    Output: "FLAT 4, 1-3 FAKE STREET, AB1 2CD, CITY", 0  # Postcode already valid, no changes
 
-    Input: "LN9 6QB, 123 MAIN ROAD"
-    Output: "123 MAIN ROAD, LN9 6QB", 1  # Postcode moved to the end of the address
+    Input: "SO41 NLP, 123 MAIN ROAD" (fake postcode)
+    Output: "123 MAIN ROAD, SO41 NLP", 1  # Postcode moved to the end of the address
     """
     import re
     from pyspark.sql.functions import udf
