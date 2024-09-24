@@ -49,9 +49,9 @@ def extract_postcode_town_address(df: DataFrame, address_col: str = "final_clean
     --------
     Given a DataFrame with the following address:
 
-    Input Address: "123 Main Street, London, W1A 1AA"
+    Input Address: "123 Main Street, London, NO31 NL3" (fake postcode)
 
-    The function will extract the town ("London") and postcode ("W1A 1AA"), and the `address_lines` will be cleaned as:
+    The function will extract the town ("London") and postcode ("NO31 NL3"), and the `address_lines` will be cleaned as:
 
     Output Address: "123 Main Street"
 
